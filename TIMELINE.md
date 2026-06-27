@@ -116,45 +116,54 @@ Ou simplesmente use `./sync.sh push` dentro do WSL — ele já tem todos os excl
   - `promptDiagram()` em `prompts.ts` — prompt para gerar flowchart TD com subgraphs por camada
 - **Descrição:** Aba "🔀 Diagrama" gera diagrama de arquitetura Mermaid do projeto via LLM. Mermaid renderiza via CDN (sem necessidade de npm install). Durante streaming mostra preview do código raw; após concluído renderiza o SVG interativo com zoom, download e link para editor online.
 - **Testado:** ✅ TypeScript: 0 erros.
-os. Build inicia corretamente.
 
 ---
 
----
-
-### [FEAT] AnalysisPanel melhorado + RepoInfoPanel no sidebar
-- **Data/Hora:** 2026-06-26 23:00 (BRT)
+### [FEAT] Chamadas LLM movidas para API route server-side
+- **Data/Hora:** 2026-06-26 23:55 (BRT)
 - **Tipo:** feat
-- **Commit:** `feat: analysis panel melhorado + repo info card no sidebar`
+- **Commit:** `feat: LLM streaming via API route server-side`
 - **Arquivos Alterados:**
-  - `readcode/components/AnalysisPanel.tsx` — reescrito com MarkdownRenderer melhorado e auto-run
-  - `readcode/components/FileTree.tsx` — RepoInfoCard integrado no topo do sidebar
-  - `readcode/app/page.tsx` — passa `repoInfo` prop ao FileTree
-  - `readcode/app/globals.css` — estilos para `.hl-inline`, `.code-block-wrapper`
+  - `readcode/app/api/stream/route.ts` — novo endpoint unificado para streaming LLM
+  - `readcode/lib/llm.ts` — refatorado: agora chama /api/stream em vez de APIs externas diretamente
 - **Funções/Componentes Alterados:**
-  - `MarkdownRenderer` em `AnalysisPanel.tsx` — reescrito: split em code blocks e text blocks, renderização de tabelas, listas ordenadas/não-ordenadas, `renderInline()` para bold/italic/inline-code
-  - `copyCode()` em `AnalysisPanel.tsx` — botão "Copiar" por code block (aparece no hover)
-  - `runAnalysis()` em `AnalysisPanel.tsx` — cache de explain por `${filePath}:${lineNumber}` via `useRef<Map>`
-  - `useEffect selectedLine` em `AnalysisPanel.tsx` — auto-run explain quando muda linha e já está na aba explain
-  - `useEffect currentFile` em `AnalysisPanel.tsx` — limpa estado explain ao trocar de arquivo
-  - `RepoInfoCard` em `FileTree.tsx` — card colapsável: description, language, ⭐ stars, 🍴 forks, topics, link para GitHub
-  - `FileTree` em `FileTree.tsx` — aceita prop `repoInfo?: RepoInfo | null`
-  - Indicador verde nas abas que já foram analisadas (`●` verde)
-  - Exibe contagem "Analisará X de Y arquivos" antes de rodar
-- **Descrição:** UX significativamente melhorada no painel de análise. MarkdownRenderer agora suporta: tabelas, code blocks com botão copiar por hover, listas ordenadas e não-ordenadas, blockquotes, bold, italic, inline code colorido. Cache de resultado "Explicar" por arquivo+linha evita re-chamadas desnecessárias à LLM. Auto-run quando seleciona linha estando na aba Explicar. Sidebar mostra card com metadados do repositório GitHub.
-- **Testado:** ✅ TypeScript: 0 erros. Build inicia corretamente.
+  - `POST /api/stream` em `route.ts` — recebe provider/model/apiKey/prompts, faz chamada server-side, retorna SSE
+  - `streamAnthropic()` em `route.ts` — lógica Anthropic movida para server
+  - `streamOpenAICompatible()` em `route.ts` — lógica OpenAI/Groq movida para server
+  - `streamOllama()` em `route.ts` — lógica Ollama movida para server
+  - `streamLLM()` em `lib/llm.ts` — agora faz POST /api/stream e processa SSE de volta
+- **Descrição:** As chamadas diretas do browser para Anthropic/OpenAI/Groq/Ollama foram movidas para uma API route Next.js server-side. O browser agora só se comunica com /api/stream (mesma origem), eliminando exposição de API keys em network requests externos visíveis no DevTools.
+- **Testado:** ✅ TypeScript: 0 erros.
 
 ---
 
-### [INFRA] Criação do TIMELINE.md e script de sincronização
-- **Data/Hora:** 2026-06-26 22:00 (BRT)
+### [INFRA] Scripts de auto-início de sessão
+- **Data/Hora:** 2026-06-27 00:10 (BRT)
 - **Tipo:** chore
-- **Commit:** pendente
+- **Commit:** `chore: start.sh + bashrc-snippet para auto-inicio de sessao`
 - **Arquivos Alterados:**
-  - `TIMELINE.md` — este arquivo, registro cronológico do projeto
-  - `sync.sh` — script de sincronização Linux ↔ Windows
+  - `start.sh` — script completo de inicialização (sync + git + npm install + tsc + dev server)
+  - `bashrc-snippet.sh` — atalhos de shell: gostart, gosync, gopush, gocd
 - **Funções/Componentes Alterados:** N/A
-- **Descrição:** Infraestrutura de rastreamento de mudanças e sincronização entre os dois filesystems (Linux principal, Windows espelho).
-- **Testado:** ✅ Sim
+- **Descrição:** `start.sh` automatiza toda a inicialização de sessão. `bashrc-snippet.sh` fornece atalhos no shell. Usuário adiciona uma linha ao ~/.bashrc e depois só roda `gostart` no WSL.
+- **Testado:** ✅ Scripts criados com permissão de execução
 
 ---
+
+### [FEAT] Chat interativo multi-turn sobre o código
+- **Data/Hora:** 2026-06-27 00:30 (BRT)
+- **Tipo:** feat
+- **Commit:** `feat: chat interativo multi-turn sobre o código`
+- **Arquivos Alterados:**
+  - `readcode/types/index.ts` — adicionado `"chat"` em AnalysisTab + interface `ChatMessage`
+  - `readcode/lib/llm.ts` — adicionada `streamChat()` para multi-turn; refatorado `_stream()` interno
+  - `readcode/app/api/stream/route.ts` — suporte a `messages[]` multi-turn (além de userPrompt one-shot)
+  - `readcode/components/AnalysisPanel.tsx` — aba "💬 Chat" com UI completa de conversa
+- **Funções/Componentes Alterados:**
+  - `ChatMessage` interface em `types/index.ts` — id, role, content, timestamp
+  - `streamChat()` em `lib/llm.ts` — envia histórico de mensagens para /api/stream
+  - `POST /api/stream` — aceita `messages[]` para conversas multi-turn
+  - `ChatTab` component em `AnalysisPanel.tsx` — UI de chat: mensagens, suggestions, input com auto-resize, streaming em tempo real
+  - `buildSystemPrompt()` — injeta até 15 arquivos do projeto como contexto da conversa
+- **Descrição:** Aba "💬 Chat" permite conversa livre sobre o projeto carregado. Sistema injeta os arquivos como contexto, mantém histórico multi-turn, mostra sugestões de perguntas iniciais, streaming em tempo real. Enter envia, Shift+Enter nova linha.
+- **Testado:** ✅ TypeScript: 0 erros.

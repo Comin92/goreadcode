@@ -4,7 +4,7 @@ export interface LLMConfig {
   provider: LLMProvider;
   apiKey: string;
   model: string;
-  baseUrl?: string; // for Ollama or custom
+  baseUrl?: string;
 }
 
 export interface CodeFile {
@@ -29,7 +29,15 @@ export type AnalysisTab =
   | "dead-code"
   | "tests"
   | "explain"
-  | "diagram";
+  | "diagram"
+  | "chat";
+
+export interface ChatMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  timestamp: number;
+}
 
 export interface AnalysisResult {
   tab: AnalysisTab;

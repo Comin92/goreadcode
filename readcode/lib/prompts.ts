@@ -119,6 +119,43 @@ Explique esta linha de código como um professor sênior explicaria para um dese
 5. **Exemplo prático** – Um exemplo simplificado do conceito se for complexo`;
 }
 
+export function promptDiagram(files: { path: string; content: string }[]): string {
+  const fileList = files.map((f) => f.path).join("\n");
+  const codeBlock = files
+    .map((f) => `### ${f.path}\n\`\`\`\n${f.content.slice(0, 1500)}\n\`\`\``)
+    .join("\n\n");
+
+  return `Analise os arquivos abaixo e gere um **diagrama Mermaid** representando a arquitetura e as dependências do projeto.
+
+Arquivos do projeto:
+${fileList}
+
+IMPORTANTE — Regras para o diagrama:
+1. Use o formato flowchart TD (top-down)
+2. Agrupe módulos por domínio/camada (ex: UI, API, Utils, Types)
+3. Mostre as dependências entre os módulos com setas e labels descritivos
+4. Use subgraphs para agrupar camadas relacionadas
+5. Mantenha o diagrama legível — máximo 20-25 nós
+6. Retorne SOMENTE o bloco de código Mermaid, sem texto adicional, sem explicações
+
+Exemplo de formato esperado (apenas o bloco):
+\`\`\`mermaid
+flowchart TD
+  subgraph UI["Interface"]
+    A[page.tsx]
+    B[CodeViewer.tsx]
+  end
+  subgraph LIB["Biblioteca"]
+    C[llm.ts]
+    D[fileParser.ts]
+  end
+  A --> B
+  A --> C
+\`\`\`
+
+${codeBlock}`;
+}
+
 export function promptExplainFile(filePath: string, fileContent: string): string {
   return `Explique o arquivo **${filePath}** linha por linha, como um professor ensinando a um desenvolvedor.
 

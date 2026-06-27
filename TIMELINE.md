@@ -7,6 +7,20 @@
 
 ---
 
+## ⚠️ Comando de Sync Correto (sempre usar este)
+
+```bash
+# Windows → Linux (nunca omitir --exclude='.git/')
+rsync -av --delete \
+  --exclude='node_modules/' --exclude='.next/' --exclude='.git/' \
+  --exclude='__pycache__/' --exclude='*.pyc' \
+  /mnt/c/Users/jeffe/Claude/Projects/ReadCode/ ~/lab/goreadcode/
+```
+
+Ou simplesmente use `./sync.sh push` dentro do WSL — ele já tem todos os excludes corretos.
+
+---
+
 ## Formato de Entrada
 
 ```
@@ -82,26 +96,27 @@
 ---
 
 ### [FEAT] Importação de repositório GitHub por URL
-- **Data/Hora:** 2026-06-26 22:30 (BRT)
+- **Data/Hora:** 2026-06-26 22:30 (B
+---
+
+### [FEAT] Diagrama de arquitetura Mermaid via CDN
+- **Data/Hora:** 2026-06-26 23:45 (BRT)
 - **Tipo:** feat
-- **Commit:** `feat: github import por URL + sync infra`
+- **Commit:** `feat: diagrama mermaid de arquitetura via CDN`
 - **Arquivos Alterados:**
-  - `readcode/lib/githubImport.ts` — novo módulo de importação via GitHub API
-  - `readcode/components/UploadZone.tsx` — nova aba "🐙 GitHub" com progress bar
-  - `readcode/app/page.tsx` — suporte a `RepoInfo`, badge do repo no header
-  - `TIMELINE.md` — este arquivo
-  - `sync.sh` — script de sync Linux↔Windows
+  - `readcode/components/MermaidDiagram.tsx` — novo componente com carregamento via CDN (sem npm install)
+  - `readcode/components/AnalysisPanel.tsx` — adicionada aba "Diagrama" (6ª aba), integração com MermaidDiagram via dynamic import
+  - `readcode/lib/prompts.ts` — corrigido truncamento + função promptDiagram() completa
+  - `readcode/types/index.ts` — corrigido truncamento + tipo "diagram" em AnalysisTab
 - **Funções/Componentes Alterados:**
-  - `parseGitHubUrl()` em `githubImport.ts` — parse de URL/slug GitHub
-  - `shouldSkipPath()` em `githubImport.ts` — filtro de arquivos binários/desnecessários
-  - `ghFetch()` em `githubImport.ts` — fetch com auth e error handling
-  - `importFromGitHub()` em `githubImport.ts` — orquestra meta → tree → conteúdo em batches de 6
-  - `handleGitHubImport()` em `UploadZone.tsx` — handler com loading/progress/error states
-  - `progressLabel()` em `UploadZone.tsx` — label descritivo por fase (meta/tree/files/done)
-  - `handleFilesLoaded()` em `page.tsx` — aceita `RepoInfo` opcional do GitHub
-  - Header em `page.tsx` — badge clicável com nome do repo e ⭐ estrelas
-- **Descrição:** Usuário pode colar URL do GitHub (ou `owner/repo`) e importar qualquer repo público diretamente, sem baixar. Suporte a token para rate limit maior (5k/h vs 60/h) e repos privados. Barra de progresso por fase. Exemplos rápidos clicáveis. Badge do repo aparece no header após importação.
-- **Testado:** ✅ TypeScript: 0 erros. Build inicia corretamente.
+  - `MermaidDiagram` — carrega mermaid.js via script CDN dinâmico, dark theme, zoom, download SVG, copiar source, link mermaid.live
+  - `TABS` em `AnalysisPanel.tsx` — adicionado { id: "diagram", label: "Diagrama", icon: "🔀" }
+  - `states` em `AnalysisPanel.tsx` — adicionada chave "diagram" no estado inicial
+  - `prompts` map em `runAnalysis()` — adicionado case "diagram" chamando promptDiagram()
+  - `promptDiagram()` em `prompts.ts` — prompt para gerar flowchart TD com subgraphs por camada
+- **Descrição:** Aba "🔀 Diagrama" gera diagrama de arquitetura Mermaid do projeto via LLM. Mermaid renderiza via CDN (sem necessidade de npm install). Durante streaming mostra preview do código raw; após concluído renderiza o SVG interativo com zoom, download e link para editor online.
+- **Testado:** ✅ TypeScript: 0 erros.
+os. Build inicia corretamente.
 
 ---
 

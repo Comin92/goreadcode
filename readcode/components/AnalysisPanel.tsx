@@ -10,8 +10,12 @@ import {
   promptTests,
   promptExplainLine,
   promptExplainFile,
+  promptDiagram,
   SYSTEM_PROFESSOR,
 } from "@/lib/prompts";
+import dynamic from "next/dynamic";
+
+const MermaidDiagram = dynamic(() => import("./MermaidDiagram"), { ssr: false });
 
 interface Props {
   files: CodeFile[];
@@ -36,6 +40,7 @@ const TABS: { id: AnalysisTab; label: string; icon: string; description: string 
   { id: "dead-code",       label: "Cód. Morto",        icon: "🧹", description: "Identifica código não utilizado" },
   { id: "tests",           label: "Testes",             icon: "🧪", description: "Estratégia e exemplos de testes" },
   { id: "explain",         label: "Explicar",           icon: "🎓", description: "Explique linha ou arquivo" },
+  { id: "diagram",         label: "Diagrama",           icon: "🔀", description: "Diagrama de arquitetura Mermaid" },
 ];
 
 // ─── Markdown Renderer ────────────────────────────────────────────────────────
@@ -106,7 +111,6 @@ function MarkdownRenderer({ content }: { content: string }) {
       if (/^\|.+\|$/.test(line)) {
         const cells = line.split("|").slice(1, -1).map((c) => c.trim());
         if (/^[\s|:-]+$/.test(line.replace(/[|:-]/g, ""))) {
-          // Separator row — transition to tbody
           tableHeader = false;
           continue;
         }
@@ -210,11 +214,12 @@ function MarkdownRenderer({ content }: { content: string }) {
 export default function AnalysisPanel({ files, currentFile, selectedLine, llmConfig, onOpenConfig }: Props) {
   const [activeTab, setActiveTab] = useState<AnalysisTab>("overview");
   const [states, setStates] = useState<Record<AnalysisTab, TabState>>({
-    overview:       { ...EMPTY_TAB },
+    overview:         { ...EMPTY_TAB },
     "business-rules": { ...EMPTY_TAB },
-    "dead-code":    { ...EMPTY_TAB },
-    tests:          { ...EMPTY_TAB },
-    explain:        { ...EMPTY_TAB },
+    "dead-code":      { ...EMPTY_TAB },
+    tests:            { ...EMPTY_TAB },
+    explain:          { ...EMPTY_TAB },
+    diagram:          { ...EMPTY_TAB },
   });
 
   // Cache explain results per file+line
@@ -256,6 +261,7 @@ export default function AnalysisPanel({ files, currentFile, selectedLine, llmCon
       "business-rules":() => promptBusinessRules(fileSubset.map((f) => ({ path: f.path, content: f.content }))),
       "dead-code":     () => promptDeadCode(fileSubset.map((f) => ({ path: f.path, content: f.content }))),
       tests:           () => promptTests(fileSubset.map((f) => ({ path: f.path, content: f.content }))),
+      diagram:         () => promptDiagram(fileSubset.map((f) => ({ path: f.path, content: f.content }))),
       explain:         () => {
         if (selectedLine && currentFile) return promptExplainLine(currentFile.path, currentFile.content, selectedLine);
         if (currentFile) return promptExplainFile(currentFile.path, currentFile.content);
@@ -327,6 +333,9 @@ export default function AnalysisPanel({ files, currentFile, selectedLine, llmCon
   };
 
   const filesUsed = Math.min(files.length, 20);
+
+  // Verifica se o diagrama foi gerado (conteúdo tem mermaid)
+  const isDiagramReady = activeTab === "diagram" && state.ran && !state.loading && !state.error && state.content.length > 10;
 
   return (
     <div className="flex flex-col h-full" style={{ background: "var(--editor-panel)" }}>
@@ -406,7 +415,9 @@ export default function AnalysisPanel({ files, currentFile, selectedLine, llmCon
                 {state.loading ? (
                   <>
                     <span className="pulse-dot w-2 h-2 rounded-full" style={{ background: "var(--editor-accent)" }} />
-                    <span className="text-xs" style={{ color: "var(--editor-accent)" }}>Analisando...</span>
+                    <span className="text-xs" style={{ color: "var(--editor-accent)" }}>
+                      {activeTab === "diagram" ? "Gerando diagrama..." : "Analisando..."}
+                    </span>
                   </>
                 ) : (
                   <span className="text-xs" style={{ color: "var(--editor-muted)" }}>
@@ -415,14 +426,16 @@ export default function AnalysisPanel({ files, currentFile, selectedLine, llmCon
                 )}
               </div>
               <div className="flex items-center gap-1">
-                <button
-                  onClick={() => navigator.clipboard.writeText(state.content)}
-                  title="Copiar tudo"
-                  className="text-xs px-2 py-1 rounded hover:bg-white/10 transition-colors"
-                  style={{ color: "var(--editor-muted)" }}
-                >
-                  📋
-                </button>
+                {activeTab !== "diagram" && (
+                  <button
+                    onClick={() => navigator.clipboard.writeText(state.content)}
+                    title="Copiar tudo"
+                    className="text-xs px-2 py-1 rounded hover:bg-white/10 transition-colors"
+                    style={{ color: "var(--editor-muted)" }}
+                  >
+                    📋
+                  </button>
+                )}
                 <button
                   onClick={() => setTabState(activeTab, { ...EMPTY_TAB })}
                   title="Limpar"
@@ -455,7 +468,32 @@ export default function AnalysisPanel({ files, currentFile, selectedLine, llmCon
                   </button>
                 </div>
               )}
-              {state.content && <MarkdownRenderer content={state.content} />}
+
+              {/* Diagram tab: render MermaidDiagram after streaming completes */}
+              {activeTab === "diagram" && isDiagramReady && (
+                <MermaidDiagram chart={state.content} />
+              )}
+
+              {/* Diagram streaming preview (raw text while loading) */}
+              {activeTab === "diagram" && state.loading && state.content && (
+                <pre
+                  className="text-xs overflow-x-auto p-3 rounded-lg border"
+                  style={{
+                    borderColor: "var(--editor-border)",
+                    background: "var(--editor-sidebar)",
+                    color: "var(--editor-muted)",
+                    whiteSpace: "pre-wrap",
+                  }}
+                >
+                  {state.content}
+                </pre>
+              )}
+
+              {/* All other tabs: markdown renderer */}
+              {activeTab !== "diagram" && state.content && (
+                <MarkdownRenderer content={state.content} />
+              )}
+
               {state.loading && !state.content && (
                 <div className="flex items-center gap-2 text-sm" style={{ color: "var(--editor-muted)" }}>
                   <span className="pulse-dot w-2 h-2 rounded-full" style={{ background: "var(--editor-muted)" }} />

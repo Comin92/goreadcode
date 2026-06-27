@@ -28,7 +28,8 @@ export type AnalysisTab =
   | "business-rules"
   | "dead-code"
   | "tests"
-  | "explain";
+  | "explain"
+  | "diagram";
 
 export interface AnalysisResult {
   tab: AnalysisTab;
